@@ -1,9 +1,22 @@
 import LoginForm from '#/components/auth/login-form.tsx'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { z } from 'zod'
 import { Presentation } from 'lucide-react'
+import { getSession } from '#/lib/auth.functions'
 
 export const Route = createFileRoute('/_auth/login')({
+  beforeLoad: async ({ location }) => {
+    const session = await getSession()
+
+    if (session) {
+      throw redirect({
+        to: '/',
+        search: {
+          redirect: location.href,
+        },
+      })
+    }
+  },
   validateSearch: z.object({
     redirect: z.string().optional(),
   }),
