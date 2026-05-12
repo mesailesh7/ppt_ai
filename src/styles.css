@@ -2,9 +2,9 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/figtree';
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
-@import "@fontsource-variable/figtree";
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import '@fontsource-variable/figtree';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -20,6 +20,14 @@ body,
 
 body {
   margin: 0;
+}
+
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blue(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
 }
 
 @theme inline {
@@ -98,6 +106,10 @@ body {
   --sidebar-accent-foreground: oklch(0.218 0.008 223.9);
   --sidebar-border: oklch(0.925 0.005 214.3);
   --sidebar-ring: oklch(0.723 0.014 214.4);
+
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
 }
 
 .dark {
@@ -132,6 +144,10 @@ body {
   --sidebar-accent-foreground: oklch(0.987 0.002 197.1);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.56 0.021 213.5);
+
+  --glass-bg: rgba(30, 30, 35, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.8);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 @layer base {
