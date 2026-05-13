@@ -1,4 +1,7 @@
-import ThemeToggle from '#/components/ThemeToggle'
+import { getSession } from '@/lib/auth.functions'
+
+// import { createPresentation } from '#/features/presentations/actions/presentation-mutations'
+// import { listPresentations } from '#/features/presentations/api/presentation-queries'
 import { Button } from '#/components/ui/button'
 import { Label } from '#/components/ui/label'
 import {
@@ -10,21 +13,21 @@ import {
 } from '#/components/ui/select'
 import { Slider } from '#/components/ui/slider'
 import { Textarea } from '#/components/ui/textarea'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { Sparkles, Wand2 } from 'lucide-react'
+import { useState } from 'react'
+import { toast } from 'sonner'
+import { listPresentations } from '#/features/presentation/actions/presentation.query'
 import { createPresentation } from '#/features/presentation/actions/presentation-mutation'
 import {
   LAYOUT_OPTIONS,
   SLIDE_STYLES,
   TONE_OPTIONS,
 } from '#/features/presentation/constant/presentation-options'
-import { PRESENTATION_TEMPLATES } from '#/features/presentation/constant/presentation-templates'
 import { presentationQueryKeys } from '#/features/presentation/hooks/query-keys'
-import { authClient } from '#/lib/auth-client'
-import { getSession } from '#/lib/auth.functions'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { Sparkles, Wand2 } from 'lucide-react'
-import { useState } from 'react'
-import { toast } from 'sonner'
+import { PRESENTATION_TEMPLATES } from '#/features/presentation/constant/presentation-templates'
+import { PresentationListSection } from '#/features/presentation/components/presentation-list-section'
 
 type HomeFormState = {
   content: string
@@ -41,30 +44,30 @@ export const Route = createFileRoute('/')({
     if (!session) {
       throw redirect({
         to: '/login',
-        search: {
-          redirect: location.href,
-        },
+        search: { redirect: location.href },
       })
     }
 
     return { user: session.user }
   },
-  component: Home,
+  component: HomePage,
 })
 
-const handleGenerate = () => {}
-function Home() {
-  const queryClient = useQueryClient()
+function HomePage() {
+  const _context = Route.useRouteContext()
   const navigate = useNavigate()
-
-  // const { data } = authClient.useSession()
-  // console.log(data)
-  const [form, setForm] = useState({
+  const queryClient = useQueryClient()
+  const [form, setForm] = useState<HomeFormState>({
     content: '',
     slideCount: 8,
     style: 'minimal',
     tone: 'formal',
     layout: 'balanced',
+  })
+
+  const { data: presentations = [], isPending: listPending } = useQuery({
+    queryKey: presentationQueryKeys.list(),
+    queryFn: () => listPresentations(),
   })
 
   const createMut = useMutation({
@@ -78,23 +81,22 @@ function Home() {
           layout: form.layout,
         },
       }),
-
     onSuccess: (presentation) => {
       toast.success('Presentation created')
-      queryClient.invalidateQueries({
-        queryKey: presentationQueryKeys.list(),
-      })
+      queryClient.invalidateQueries({ queryKey: presentationQueryKeys.list() })
       navigate({
-        to: '/presentation/$presentationId',
+        to: '/presentations/$presentationId',
         params: { presentationId: presentation.id },
       })
     },
-    onError: (error) => {
-      toast.error('Could not create presentation')
+    onError: (e) => {
+      toast.error(
+        e instanceof Error ? e.message : 'Could not create presentation',
+      )
     },
   })
 
-  const handleCreate = () => {
+  const handleGenerate = () => {
     if (!form.content.trim()) {
       toast.error('Please enter your content first')
       return
@@ -105,20 +107,28 @@ function Home() {
   return (
     <main className="min-h-screen pt-24 pb-12 px-4">
       <div className="max-w-4xl mx-auto">
-        {/*todo: presentation section*/}
+        <PresentationListSection
+          presentations={presentations}
+          isPending={listPending}
+        />
+
+        {/* Header */}
         <div className="text-center mb-10">
           <h1 className="text-4xl md:text-5xl font-bold mb-3">
             What do you want to{' '}
-            <span className="text-gradient-peach">Create ?</span>
+            <span className="text-gradient-peach">create?</span>
           </h1>
           <p className="text-muted-foreground text-lg">
             Enter your content and we'll generate a beautiful presentation
           </p>
         </div>
+
+        {/* Main input card */}
         <div className="glass rounded-3xl p-6 md:p-8 space-y-6">
+          {/* Textarea */}
           <div className="space-y-2">
             <Textarea
-              placeholder="Describe your presentation topic, paste your notes or outline your key points"
+              placeholder="Describe your presentation topic, paste your notes, or outline your key points..."
               value={form.content}
               onChange={(e) =>
                 setForm((s) => ({
@@ -126,13 +136,14 @@ function Home() {
                   content: e.target.value,
                 }))
               }
-              className="h-[200px] min-h-[200px] max-h-[200px] overflow-y-auto text-base bg-background/50"
+              className="h-[200px] min-h-[200px] max-h-[200px] overflow-y-auto text-base bg-background/50 border-border/50 rounded-2xl resize-none focus-visible:ring-primary/30"
             />
             <div className="flex justify-between text-xs text-muted-foreground px-1">
               <span>{form.content.length.toLocaleString()} characters</span>
               <span>Markdown supported</span>
             </div>
           </div>
+
           {/* Options grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Slide count */}
@@ -235,7 +246,7 @@ function Home() {
           <div className="flex justify-end pt-2">
             <Button
               size="lg"
-              onClick={handleCreate}
+              onClick={handleGenerate}
               disabled={createMut.isPending || !form.content.trim()}
               className="rounded-xl px-8 gap-2 font-semibold"
             >

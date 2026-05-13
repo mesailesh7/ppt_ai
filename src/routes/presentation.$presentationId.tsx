@@ -21,11 +21,16 @@ import {
 import { Slider } from '#/components/ui/slider'
 import { Textarea } from '#/components/ui/textarea'
 import { GenerationStatus } from '#/features/presentation/components/generation-status'
+import { SlideCard } from '#/features/presentation/components/slide-card'
+import { SlidePreview } from '#/features/presentation/components/slide-preview'
+import { SlideshowModal } from '#/features/presentation/components/slideshow-modal'
 import {
   LAYOUT_OPTIONS,
   SLIDE_STYLES,
   TONE_OPTIONS,
 } from '#/features/presentation/constant/presentation-options'
+import { useFullscreen } from '#/features/presentation/hooks/use-fullscreen'
+import { exportToPptx } from '#/features/presentation/lib/export-pptx'
 import { presentationThumbnailUrl } from '#/features/presentation/utils/thumbnail-url'
 import { usePresentationDetail } from '#/hooks/usePresentation-detail'
 
@@ -41,7 +46,8 @@ import {
   Save,
   Trash2,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
+import { toast } from 'sonner'
 
 export const Route = createFileRoute('/presentation/$presentationId')({
   component: RouteComponent,
@@ -60,7 +66,7 @@ function RouteComponent() {
     query,
     slides,
     isGenerating,
-    updatedLabel,
+    // updatedLabel,
     form,
     setForm,
     updateMut,
@@ -69,6 +75,30 @@ function RouteComponent() {
   } = usePresentationDetail(presentationId, {
     onDeleted: () => navigate({ to: '/' }),
   })
+
+  const { isFullscreen, toggleFullscreen } = useFullscreen(
+    'slide-preview-container',
+  )
+
+  const handleExportPptx = useCallback(async () => {
+    const data = query.data
+    if (!data) return
+    const slidesToExport = slides
+    if (slidesToExport.length === 0) return
+
+    setIsExporting(true)
+    try {
+      const filename = await exportToPptx({
+        title: data.title,
+        slides: slidesToExport,
+      })
+      toast.success(`Exported as ${filename}`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Export failed')
+    } finally {
+      setIsExporting(false)
+    }
+  }, [query.data, slides])
 
   if (query.isPending) {
     return (
@@ -97,7 +127,7 @@ function RouteComponent() {
   }
 
   const data = query.data
-  const thumb = presentationThumbnailUrl(data?.id!)
+  const thumb = presentationThumbnailUrl(data.id)
   const activeSlide = slides.at(activeSlideIndex)
 
   return (

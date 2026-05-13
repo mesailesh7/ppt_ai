@@ -1,51 +1,48 @@
 import { createServerFn } from '@tanstack/react-start'
+
+import { inngest } from '#/integrations/inngest/client'
 import {
   createPresentationInputSchema,
   presentationIdInputSchema,
   updatePresentationInputSchema,
 } from '../types/schema'
-import { authFnMiddleware } from '#/middleware/auth'
-import { generateSlug } from 'random-word-slugs'
-import { PresentationStatus } from '#/generated/prisma/enums'
+import { deriveTitle, requirePresentationUserId } from '../lib/service-helpers'
 import { prisma } from '#/lib/db'
 
-export const createPresentation = createServerFn({
-  method: 'POST',
-})
+export const createPresentation = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => createPresentationInputSchema.parse(data))
-  .middleware([authFnMiddleware])
-  .handler(async ({ data, context }) => {
-    const userId = context?.session?.user?.id
-
+  .handler(async ({ data }) => {
+    const userId = await requirePresentationUserId()
     const presentation = await prisma.presentation.create({
       data: {
         userId,
-        title: generateSlug(),
+        title: deriveTitle(data.prompt),
         prompt: data.prompt,
         slideCount: data.slideCount,
         style: data.style,
         tone: data.tone,
         layout: data.layout,
-        status: PresentationStatus.COMPLETED,
+        status: 'GENERATING',
       },
     })
 
-    // Todo: inngest background job trigger
+    await inngest.send({
+      name: 'presentation/generate',
+      data: { presentationId: presentation.id },
+    })
+
     return presentation
   })
 
 export const updatePresentation = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => updatePresentationInputSchema.parse(data))
-  .middleware([authFnMiddleware])
-  .handler(async ({ data, context }) => {
-    const userId = context?.session?.user?.id
+  .handler(async ({ data }) => {
+    const userId = await requirePresentationUserId()
     const { id, ...patch } = data
-
-    const exisiting = await prisma.presentation.findFirst({
+    const existing = await prisma.presentation.findFirst({
       where: { id, userId },
     })
-
-    if (!exisiting) throw new Error('Not Found')
+    if (!existing) throw new Error('Not found')
     const updateData = patch
     return prisma.presentation.update({
       where: { id },
@@ -55,46 +52,32 @@ export const updatePresentation = createServerFn({ method: 'POST' })
 
 export const deletePresentation = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => presentationIdInputSchema.parse(data))
-  .middleware([authFnMiddleware])
-  .handler(async ({ data, context }) => {
-    const userId = context?.session?.user?.id
-
+  .handler(async ({ data }) => {
+    const userId = await requirePresentationUserId()
     const existing = await prisma.presentation.findFirst({
-      where: { id: data?.id, userId },
+      where: { id: data.id, userId },
     })
-
-    if (!existing) throw new Error('Not Found')
+    if (!existing) throw new Error('Not found')
     await prisma.presentation.delete({ where: { id: data.id } })
-
-    return {
-      ok: true as const,
-    }
+    return { ok: true as const }
   })
 
-export const regeneratePresentation = createServerFn({
-  method: 'POST',
-})
+export const regeneratePresentation = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => presentationIdInputSchema.parse(data))
-  .middleware([authFnMiddleware])
-  .handler(async ({ data, context }) => {
-    const userId = context?.session?.user?.id
-
+  .handler(async ({ data }) => {
+    const userId = await requirePresentationUserId()
     const existing = await prisma.presentation.findFirst({
-      where: { id: data?.id, userId },
+      where: { id: data.id, userId },
     })
+    if (!existing) throw new Error('Not found')
 
-    if (!existing) throw new Error('Not Found')
     await prisma.presentation.update({
-      where: {
-        id: data.id,
-      },
-      data: {
-        status: PresentationStatus.GENERATING,
-      },
+      where: { id: data.id },
+      data: { status: 'GENERATING' },
     })
 
-    // Todo: inngest background job trigger
-    return {
-      ok: true as const,
-    }
+    await inngest.send({
+      name: 'presentation/generate',
+      data: { presentationId: data.id },
+    })
   })
