@@ -66,7 +66,7 @@ function RouteComponent() {
     query,
     slides,
     isGenerating,
-    // updatedLabel,
+    updatedLabel,
     form,
     setForm,
     updateMut,
@@ -146,9 +146,11 @@ function RouteComponent() {
                 Home
               </Link>
             </Button>
-
-            <GenerationStatus status={data?.status!} />
+            <GenerationStatus status={data.status} />
           </div>
+          <span className="text-sm text-muted-foreground">
+            Updated {updatedLabel}
+          </span>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-6">
